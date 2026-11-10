@@ -1,0 +1,31 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // 아이디 → 로그인용 이메일 (아이디를 알아야만 읽을 수 있고, 목록은 못 봄)
+    match /usernames/{id} {
+      allow get: if true;
+      allow list: if false;
+      allow create: if request.auth != null
+        && request.resource.data.uid == request.auth.uid
+        && id.matches('^[a-z0-9_]{3,16}$');
+    }
+    // 이메일(SHA-256) → 아이디 (아이디 찾기 메일 링크에서만 씀)
+    match /emails/{h} {
+      allow get: if true;
+      allow list: if false;
+      allow create: if request.auth != null && request.resource.data.uid == request.auth.uid;
+    }
+    // 랭킹·기록: 누구나 보고, 자기 것만 씀
+    match /players/{uid} {
+      allow read: if true;
+      allow create, update: if request.auth != null && request.auth.uid == uid
+        && request.resource.data.idx is int && request.resource.data.idx >= 0 && request.resource.data.idx <= 30
+        && request.resource.data.pts is int && request.resource.data.pts >= 0
+        && request.resource.data.score == request.resource.data.idx * 10000 + request.resource.data.pts;
+      match /matches/{m} {
+        allow read: if true;
+        allow create: if request.auth != null && request.auth.uid == uid;
+      }
+    }
+  }
+}
